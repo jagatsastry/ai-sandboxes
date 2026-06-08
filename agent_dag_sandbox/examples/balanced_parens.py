@@ -24,6 +24,7 @@ Run:  python -m examples.balanced_parens
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -86,6 +87,16 @@ def build_dag() -> DAG:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Live-stream every DAG event to stderr as it happens "
+        "(also honored via AGENTDAG_VERBOSE=1).",
+    )
+    args = parser.parse_args()
+
     bb = Blackboard()
     bb.put(
         "task_spec",
@@ -97,7 +108,7 @@ def main() -> None:
     )
 
     trace_path = Path(__file__).resolve().parent.parent / "traces" / "balanced_parens.jsonl"
-    tracer = Tracer(trace_path)
+    tracer = Tracer(trace_path, verbose=args.verbose or None)
 
     dag = build_dag()
     sched = Scheduler(dag, blackboard=bb, tracer=tracer, workers=4)

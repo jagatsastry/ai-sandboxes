@@ -54,7 +54,14 @@ def one_call(client: httpx.Client, url: str, profile: str, cands: int, topk: int
     return j["timings"]
 
 
-def run_level(url: str, concurrency: int, reqs: int, cands: int, topk: int) -> dict:
+def run_level(
+    url: str,
+    concurrency: int,
+    reqs: int,
+    cands: int,
+    topk: int,
+    verbose: bool = False,
+) -> dict:
     """Fire `reqs` requests with `concurrency` workers in flight at once."""
     lats = {"wall": [], "total": [], "gpu": [], "embed": [], "tokenize": [], "candidate": []}
 
@@ -66,6 +73,7 @@ def run_level(url: str, concurrency: int, reqs: int, cands: int, topk: int) -> d
             return one_call(c, url, PROFILES[i % len(PROFILES)], cands, topk)
 
     t0 = time.perf_counter()
+    completed = 0
     with ThreadPoolExecutor(max_workers=concurrency) as ex:
         futs = [ex.submit(worker, i) for i in range(reqs)]
         for f in as_completed(futs):
@@ -76,6 +84,14 @@ def run_level(url: str, concurrency: int, reqs: int, cands: int, topk: int) -> d
             lats["embed"].append(t["embed_ms"])
             lats["tokenize"].append(t["tokenize_ms"])
             lats["candidate"].append(t["candidate_ms"])
+            completed += 1
+            if verbose:
+                print(
+                    f"    [c={concurrency:>2} {completed:>3}/{reqs}] "
+                    f"wall={t['wall_ms']:6.1f}ms srv={t['total_ms']:6.1f}ms "
+                    f"(gpu={t['gpu_ms']:5.1f} tok={t['tokenize_ms']:5.1f} "
+                    f"queue={t.get('queue_ms', 0):5.1f} batch={t.get('batch_size', 0):2d})"
+                )
     elapsed = time.perf_counter() - t0
 
     return {
@@ -117,6 +133,12 @@ def main():
         "--reqs", type=int, default=16, help="requests per concurrency level (after warmup)"
     )
     ap.add_argument("--levels", default="1,2,4,8", help="comma-separated concurrency levels")
+    ap.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print every individual request's wall + server timings as they complete.",
+    )
     args = ap.parse_args()
 
     levels = [int(x) for x in args.levels.split(",")]
@@ -131,7 +153,7 @@ def main():
         print(
             f"\n>> concurrency={level}  reqs={args.reqs}  " f"cands={args.cands}  topk={args.topk}"
         )
-        r = run_level(args.url, level, args.reqs, args.cands, args.topk)
+        r = run_level(args.url, level, args.reqs, args.cands, args.topk, verbose=args.verbose)
         rows.append(r)
         L = r["lats"]
         print(

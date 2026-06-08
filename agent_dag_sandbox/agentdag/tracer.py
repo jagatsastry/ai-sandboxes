@@ -19,11 +19,13 @@ node, attempt, kind, and an optional payload dict.
 from __future__ import annotations
 
 import json
+import os
+import sys
 import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 
 @dataclass
@@ -40,7 +42,22 @@ class TraceEvent:
 
 
 class Tracer:
-    def __init__(self, path: str | Path | None = None) -> None:
+    """Collect, persist, and (optionally) live-stream DAG events.
+
+    Verbose mode prints a one-line summary of every event to ``stream``
+    (default stderr) as it is emitted, so you can watch a run unfold in real
+    time without waiting for the post-run summary table. Enable via the
+    constructor (``Tracer(verbose=True)``) or by setting the environment
+    variable ``AGENTDAG_VERBOSE=1``.
+    """
+
+    def __init__(
+        self,
+        path: str | Path | None = None,
+        *,
+        verbose: bool | None = None,
+        stream: TextIO | None = None,
+    ) -> None:
         self._events: list[TraceEvent] = []
         self._lock = threading.Lock()
         self._path = Path(path) if path else None
@@ -48,6 +65,15 @@ class Tracer:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             # truncate
             self._path.write_text("")
+        if verbose is None:
+            verbose = os.environ.get("AGENTDAG_VERBOSE", "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+        self.verbose = bool(verbose)
+        self._stream: TextIO = stream if stream is not None else sys.stderr
+        self._t0: float | None = None
 
     def emit(self, kind: str, node: str, attempt: int = 0, **payload: Any) -> None:
         ev = TraceEvent(
@@ -63,6 +89,30 @@ class Tracer:
             if self._path:
                 with self._path.open("a") as f:
                     f.write(json.dumps(ev.to_dict()) + "\n")
+            if self.verbose:
+                self._stream_event(ev)
+
+    def _stream_event(self, ev: TraceEvent) -> None:
+        """Print a compact one-liner for live tailing. Holds the tracer lock."""
+        if self._t0 is None:
+            self._t0 = ev.ts
+        rel_ms = (ev.ts - self._t0) * 1000.0
+        # Trim payload values that are big (e.g. multi-line code blobs).
+        preview_items: list[str] = []
+        for k, v in ev.payload.items():
+            s = repr(v)
+            if len(s) > 80:
+                s = s[:77] + "..."
+            preview_items.append(f"{k}={s}")
+        preview = " ".join(preview_items)
+        line = f"[t+{rel_ms:7.1f}ms] {ev.kind:<8} {ev.node:<18} attempt={ev.attempt}"
+        if preview:
+            line += f"  {preview}"
+        try:
+            self._stream.write(line + "\n")
+            self._stream.flush()
+        except Exception:  # noqa: BLE001 - logging must never break execution
+            pass
 
     @property
     def events(self) -> list[TraceEvent]:

@@ -45,6 +45,9 @@ LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.7"))
 BATCH_ENABLE = os.getenv("BATCH_ENABLE", "1") not in ("0", "false", "False")
 BATCH_MAX_SIZE = int(os.getenv("BATCH_MAX_SIZE", "64"))
 BATCH_MAX_WAIT_MS = float(os.getenv("BATCH_MAX_WAIT_MS", "5.0"))
+# Verbose logging: when VERBOSE=1 we print per-request stage timings to stdout.
+# Quiet by default so benchmarks don't pay a logging tax.
+VERBOSE = os.getenv("VERBOSE", "").lower() in {"1", "true", "yes"}
 
 
 # ---------------- API models ----------------
@@ -234,6 +237,17 @@ async def recommend(req: RecRequest):
         State.metrics["sum_embed_ms"] += timings.embed_ms
         State.metrics["sum_candidate_ms"] += timings.candidate_ms
         State.metrics["sum_queue_ms"] += timings.queue_ms
+
+    if VERBOSE:
+        preview = top[0][0].title if top else "-"
+        print(
+            f"[req] cands={len(cands)} top_k={req.top_k} "
+            f"embed={timings.embed_ms:.1f}ms cand={timings.candidate_ms:.1f}ms "
+            f"tok={timings.tokenize_ms:.1f}ms gpu={timings.gpu_ms:.1f}ms "
+            f"queue={timings.queue_ms:.1f}ms batch={timings.batch_size} "
+            f"total={timings.total_ms:.1f}ms  top1={preview!r}",
+            flush=True,
+        )
 
     return RecResponse(
         items=[

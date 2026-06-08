@@ -22,6 +22,7 @@ of the tree, and the regression guard re-runs the suite to confirm.
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -105,11 +106,20 @@ def build_dag() -> DAG:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Live-stream every DAG event to stderr (also AGENTDAG_VERBOSE=1).",
+    )
+    args = parser.parse_args()
+
     bb = Blackboard()
     bb.put("project_tree", BUGGY_PROJECT)
 
     trace_path = Path(__file__).resolve().parent.parent / "traces" / "fix_failing_test.jsonl"
-    tracer = Tracer(trace_path)
+    tracer = Tracer(trace_path, verbose=args.verbose or None)
 
     dag = build_dag()
     sched = Scheduler(dag, blackboard=bb, tracer=tracer, workers=2)
