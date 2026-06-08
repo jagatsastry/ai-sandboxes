@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  # Use Node.js 24 for actions (Node 20 is deprecated as of mid-2026).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   agent_dag_sandbox:
     name: agent_dag_sandbox · tests
