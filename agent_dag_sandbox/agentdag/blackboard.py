@@ -10,6 +10,7 @@ Design notes:
 """
 from __future__ import annotations
 
+import copy
 import threading
 from typing import Any, Dict, Iterator, Optional, Tuple
 
@@ -51,9 +52,16 @@ class Blackboard:
             return self._version
 
     # ---- snapshot ---------------------------------------------------------
-    def snapshot(self) -> Tuple[int, Dict[str, Any]]:
-        """Return (version, shallow_copy). Mutating the copy is safe."""
+    def snapshot(self, deep: bool = True) -> Tuple[int, Dict[str, Any]]:
+        """Return (version, copy). Mutating the copy never affects the board.
+
+        deep=True (default) deep-copies the values so nested lists/dicts are
+        also isolated. Pass deep=False for a fast shallow copy when you know
+        the values are immutable (cheaper).
+        """
         with self._lock:
+            if deep:
+                return self._version, copy.deepcopy(self._data)
             return self._version, dict(self._data)
 
     @property

@@ -1,5 +1,5 @@
 from agentdag import DAG, Blackboard, Scheduler, Tracer
-from agentdag.agents import Council, TestWriter
+from agentdag.agents import Council, CaseWriter
 from agentdag.agents.roles import union_tests
 
 
@@ -10,9 +10,9 @@ def test_test_council_union_dedups():
     dag.add(
         "test_council",
         Council(
-            members=[TestWriter(focus="general"),
-                     TestWriter(focus="edge"),
-                     TestWriter(focus="mixed")],
+            members=[CaseWriter(focus="general"),
+                     CaseWriter(focus="edge"),
+                     CaseWriter(focus="mixed")],
             aggregator=union_tests,
         ),
     )

@@ -69,7 +69,7 @@ class Breakdown:
 
 
 # ---------------- TestWriter ---------------------------------------------
-class TestWriter:
+class CaseWriter:
     """Emits a list of (input, expected) test cases for the target function.
 
     The 'persona' affects which kinds of cases it focuses on so council

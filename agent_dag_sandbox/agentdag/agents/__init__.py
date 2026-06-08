@@ -8,18 +8,22 @@ from .llm import LLMClient, EchoLLM
 from .roles import (
     Planner,
     Breakdown,
-    TestWriter,
+    CaseWriter,
     Coder,
     Adversary,
     Verifier,
     Council,
 )
 
+# Back-compat alias (deprecated): older name shadowed pytest's Test* heuristic.
+TestWriter = CaseWriter
+
 __all__ = [
     "LLMClient",
     "EchoLLM",
     "Planner",
     "Breakdown",
+    "CaseWriter",
     "TestWriter",
     "Coder",
     "Adversary",

@@ -33,7 +33,7 @@ from agentdag.agents import (
     Coder,
     Council,
     Planner,
-    TestWriter,
+    CaseWriter,
     Verifier,
 )
 from agentdag.agents.roles import union_tests
@@ -48,9 +48,9 @@ def build_dag() -> DAG:
     # COUNCIL: 3 test writers with different focuses, merged via union.
     test_council = Council(
         members=[
-            TestWriter(focus="general"),
-            TestWriter(focus="edge"),
-            TestWriter(focus="mixed"),
+            CaseWriter(focus="general"),
+            CaseWriter(focus="edge"),
+            CaseWriter(focus="mixed"),
         ],
         aggregator=union_tests,
         name="test_council",
