@@ -52,10 +52,14 @@ jobs:
         run: pip install --upgrade pip pytest
       - name: pytest
         run: python -m pytest -q
-      - name: Run sample workflow end-to-end
+      - name: Run sample workflow end-to-end (balanced_parens)
         run: python -m examples.balanced_parens
-      - name: Analyze trace
-        run: python -m agentdag.analyze traces/balanced_parens.jsonl
+      - name: Run sample workflow end-to-end (fix_failing_test)
+        run: python -m examples.fix_failing_test
+      - name: Analyze traces
+        run: |
+          python -m agentdag.analyze traces/balanced_parens.jsonl
+          python -m agentdag.analyze traces/fix_failing_test.jsonl
 
   llm_rec_svc:
     name: llm_rec_svc · unit tests

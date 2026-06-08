@@ -6,6 +6,13 @@ the body for an OpenAI/Anthropic call and the DAG keeps working.
 """
 
 from .llm import EchoLLM, LLMClient, OpenAIChatLLM
+from .repair import (
+    BugLocalizer,
+    PatchApplier,
+    PatchProposer,
+    RegressionGuard,
+    TestRunner,
+)
 from .roles import (
     Adversary,
     Breakdown,
@@ -33,4 +40,10 @@ __all__ = [
     "Adversary",
     "Verifier",
     "Council",
+    # fix-failing-test workflow
+    "TestRunner",
+    "BugLocalizer",
+    "PatchProposer",
+    "PatchApplier",
+    "RegressionGuard",
 ]
