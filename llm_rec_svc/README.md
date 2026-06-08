@@ -80,10 +80,26 @@ You get back:
 }
 ```
 
-### Benchmark
+### Benchmarks
+
+See [BENCHMARKS.md](./BENCHMARKS.md) for full results (single-request latency,
+concurrency-vs-latency, where time goes). TL;DR on CPU sandbox: GPU stage is
+99% of latency; throughput is flat under concurrency because requests
+serialize through one model worker.
+
+Reproduce:
 
 ```bash
+# fast end-to-end (tiny-gpt2): tests + sample + sweep + concurrency bench
+bash scripts/run_e2e.sh
+
+# with the real model
+LLM=Qwen/Qwen2.5-0.5B-Instruct bash scripts/run_e2e.sh
+
+# individual scripts
 python scripts/bench.py -n 100 --topk 5 --cands 20
+python scripts/bench_sweep.py
+python scripts/bench_concurrency.py --reqs 24 --levels 1,2,4,8
 ```
 
 ## Swapping the model
