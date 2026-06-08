@@ -4,12 +4,13 @@ All agents in the sandbox are MOCK LLMs -- deterministic local Python that
 follows the same input/output contract a real LLM-backed agent would. Swap
 the body for an OpenAI/Anthropic call and the DAG keeps working.
 """
-from .llm import LLMClient, EchoLLM
+from .llm import LLMClient, EchoLLM, OpenAIChatLLM
 from .roles import (
     Planner,
     Breakdown,
     CaseWriter,
     Coder,
+    LLMCoder,
     Adversary,
     Verifier,
     Council,
@@ -21,11 +22,13 @@ TestWriter = CaseWriter
 __all__ = [
     "LLMClient",
     "EchoLLM",
+    "OpenAIChatLLM",
     "Planner",
     "Breakdown",
     "CaseWriter",
     "TestWriter",
     "Coder",
+    "LLMCoder",
     "Adversary",
     "Verifier",
     "Council",
