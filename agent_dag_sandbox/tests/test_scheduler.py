@@ -1,6 +1,5 @@
 import pytest
-
-from agentdag import DAG, RetryPolicy, Scheduler, NodeFailed
+from agentdag import DAG, NodeFailed, RetryPolicy, Scheduler
 
 
 def test_linear_dag_runs_in_order():
@@ -11,6 +10,7 @@ def test_linear_dag_runs_in_order():
         def fn(ctx):
             order.append(name)
             return name
+
         return fn
 
     dag.add("a", make("a"))
@@ -28,8 +28,7 @@ def test_parallel_branches_both_complete():
     dag.add("root", lambda ctx: "r")
     dag.add("l", lambda ctx: "L", deps=["root"])
     dag.add("r", lambda ctx: "R", deps=["root"])
-    dag.add("join", lambda ctx: ctx.bb.get("l") + ctx.bb.get("r"),
-            deps=["l", "r"])
+    dag.add("join", lambda ctx: ctx.bb.get("l") + ctx.bb.get("r"), deps=["l", "r"])
     out = Scheduler(dag, workers=4).run()
     assert out["join"] == "LR"
 

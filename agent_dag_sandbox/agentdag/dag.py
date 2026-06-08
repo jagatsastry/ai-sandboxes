@@ -10,10 +10,12 @@ name, the current attempt number, and a `log()` helper.
 The result of fn is stored on the blackboard under the node's name by the
 scheduler, so downstream nodes can read it via `ctx.bb.get("<upstream>")`.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set
+from typing import Any
 
 from .blackboard import Blackboard
 from .tracer import Tracer
@@ -21,11 +23,11 @@ from .tracer import Tracer
 
 @dataclass
 class RetryPolicy:
-    max_attempts: int = 1            # 1 = no retries
-    backoff_ms: int = 0              # fixed backoff between attempts
+    max_attempts: int = 1  # 1 = no retries
+    backoff_ms: int = 0  # fixed backoff between attempts
     # retry only if the raised exception's type name is in this set;
     # empty = retry on any Exception.
-    retry_on: Set[str] = field(default_factory=set)
+    retry_on: set[str] = field(default_factory=set)
 
     def should_retry(self, attempt: int, exc: BaseException) -> bool:
         if attempt >= self.max_attempts:
@@ -53,21 +55,21 @@ NodeFn = Callable[[NodeContext], Any]
 class Node:
     name: str
     fn: NodeFn
-    deps: List[str] = field(default_factory=list)
+    deps: list[str] = field(default_factory=list)
     retry: RetryPolicy = field(default_factory=RetryPolicy)
 
 
 class DAG:
     def __init__(self, name: str = "dag") -> None:
         self.name = name
-        self._nodes: Dict[str, Node] = {}
+        self._nodes: dict[str, Node] = {}
 
     def add(
         self,
         name: str,
         fn: NodeFn,
-        deps: Optional[Iterable[str]] = None,
-        retry: Optional[RetryPolicy] = None,
+        deps: Iterable[str] | None = None,
+        retry: RetryPolicy | None = None,
     ) -> Node:
         if name in self._nodes:
             raise ValueError(f"duplicate node: {name}")
@@ -81,7 +83,7 @@ class DAG:
         return node
 
     @property
-    def nodes(self) -> Dict[str, Node]:
+    def nodes(self) -> dict[str, Node]:
         return self._nodes
 
     def validate(self) -> None:
@@ -93,13 +95,13 @@ class DAG:
         # No cycles
         self.topological_order()
 
-    def topological_order(self) -> List[str]:
-        indeg: Dict[str, int] = {n: 0 for n in self._nodes}
+    def topological_order(self) -> list[str]:
+        indeg: dict[str, int] = {n: 0 for n in self._nodes}
         for n in self._nodes.values():
-            for d in n.deps:
+            for _d in n.deps:
                 indeg[n.name] += 1
         ready = [n for n, k in indeg.items() if k == 0]
-        order: List[str] = []
+        order: list[str] = []
         while ready:
             ready.sort()  # deterministic
             cur = ready.pop(0)

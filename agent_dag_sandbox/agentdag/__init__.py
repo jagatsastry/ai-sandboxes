@@ -7,10 +7,11 @@ Primitives:
     - Scheduler: thread-pool executor with queues + retries
     - agents.*: pluggable agent roles (planner, coder, adversary, council, ...)
 """
+
 from .blackboard import Blackboard
-from .tracer import Tracer, TraceEvent
 from .dag import DAG, Node, RetryPolicy
-from .scheduler import Scheduler, NodeFailed
+from .scheduler import NodeFailed, Scheduler
+from .tracer import TraceEvent, Tracer
 
 __all__ = [
     "Blackboard",

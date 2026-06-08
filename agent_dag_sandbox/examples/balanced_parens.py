@@ -21,6 +21,7 @@ Roles:
 
 Run:  python -m examples.balanced_parens
 """
+
 from __future__ import annotations
 
 import json
@@ -30,10 +31,10 @@ from agentdag import DAG, Blackboard, RetryPolicy, Scheduler, Tracer
 from agentdag.agents import (
     Adversary,
     Breakdown,
+    CaseWriter,
     Coder,
     Council,
     Planner,
-    CaseWriter,
     Verifier,
 )
 from agentdag.agents.roles import union_tests
@@ -86,11 +87,14 @@ def build_dag() -> DAG:
 
 def main() -> None:
     bb = Blackboard()
-    bb.put("task_spec", {
-        "goal": "Implement is_balanced_parens(s: str) -> bool",
-        "signature": "solve(s: str) -> bool",
-        "notes": "Return True iff every '(' has a matching ')' in correct order.",
-    })
+    bb.put(
+        "task_spec",
+        {
+            "goal": "Implement is_balanced_parens(s: str) -> bool",
+            "signature": "solve(s: str) -> bool",
+            "notes": "Return True iff every '(' has a matching ')' in correct order.",
+        },
+    )
 
     trace_path = Path(__file__).resolve().parent.parent / "traces" / "balanced_parens.jsonl"
     tracer = Tracer(trace_path)

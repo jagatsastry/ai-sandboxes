@@ -13,13 +13,13 @@ We intentionally use threads (not asyncio) because the agents in this sandbox
 are CPU-light Python code that may also do blocking I/O when wired to real
 APIs -- a thread pool is the simplest model that scales to both.
 """
+
 from __future__ import annotations
 
 import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set
 
 from .blackboard import Blackboard
 from .dag import DAG, NodeContext
@@ -43,8 +43,8 @@ class Scheduler:
     def __init__(
         self,
         dag: DAG,
-        blackboard: Optional[Blackboard] = None,
-        tracer: Optional[Tracer] = None,
+        blackboard: Blackboard | None = None,
+        tracer: Tracer | None = None,
         workers: int = 4,
     ) -> None:
         self.dag = dag
@@ -52,18 +52,18 @@ class Scheduler:
         self.tracer = tracer or Tracer()
         self.workers = max(1, workers)
 
-        self._q: "queue.Queue[Optional[_WorkItem]]" = queue.Queue()
-        self._done: Set[str] = set()
-        self._failed: Set[str] = set()
-        self._ever_enqueued: Set[str] = set()
+        self._q: queue.Queue[_WorkItem | None] = queue.Queue()
+        self._done: set[str] = set()
+        self._failed: set[str] = set()
+        self._ever_enqueued: set[str] = set()
         self._done_lock = threading.Lock()
         self._in_flight = 0
         self._in_flight_lock = threading.Lock()
         self._cancel = threading.Event()
-        self._error: Optional[NodeFailed] = None
+        self._error: NodeFailed | None = None
 
     # ---- public ----------------------------------------------------------
-    def run(self) -> Dict[str, object]:
+    def run(self) -> dict[str, object]:
         self.dag.validate()
 
         # initial ready set
@@ -130,9 +130,7 @@ class Scheduler:
         if self._cancel.is_set():
             return
         node = self.dag.nodes[item.node_name]
-        ctx = NodeContext(
-            name=node.name, attempt=item.attempt, bb=self.bb, tracer=self.tracer
-        )
+        ctx = NodeContext(name=node.name, attempt=item.attempt, bb=self.bb, tracer=self.tracer)
         self.tracer.emit("started", node.name, attempt=item.attempt)
         try:
             result = node.fn(ctx)
@@ -148,9 +146,7 @@ class Scheduler:
                     time.sleep(node.retry.backoff_ms / 1000.0)
                 self._enqueue(node.name, attempt=item.attempt + 1)
                 return
-            self.tracer.emit(
-                "failed", node.name, attempt=item.attempt, error=repr(exc)
-            )
+            self.tracer.emit("failed", node.name, attempt=item.attempt, error=repr(exc))
             with self._done_lock:
                 self._failed.add(node.name)
             self._error = NodeFailed(node.name, exc)

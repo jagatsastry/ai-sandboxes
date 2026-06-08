@@ -13,15 +13,15 @@ Latency tricks:
     - torch.inference_mode() everywhere
     - tokenizer padded to longest-in-batch only
 """
+
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
 
 PROMPT_TMPL = (
     "You are a recommender. A user has this profile:\n"
@@ -38,9 +38,9 @@ PROMPT_TMPL = (
 @dataclass
 class ScoreResult:
     item_id: str
-    llm_score: float       # log p(yes) - log p(no), higher = more relevant
-    retrieval_score: float # cosine from candidate gen
-    final_score: float     # weighted blend
+    llm_score: float  # log p(yes) - log p(no), higher = more relevant
+    retrieval_score: float  # cosine from candidate gen
+    final_score: float  # weighted blend
 
 
 class LLMScorer:
@@ -52,16 +52,16 @@ class LLMScorer:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=self.dtype
-        ).to(self.device)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.dtype).to(
+            self.device
+        )
         self.model.eval()
 
         # cache token ids for "yes"/"no" (leading space variants too)
         self._yes_ids = self._first_token_ids([" yes", "yes", " Yes", "Yes"])
         self._no_ids = self._first_token_ids([" no", "no", " No", "No"])
 
-    def _first_token_ids(self, words: Sequence[str]) -> List[int]:
+    def _first_token_ids(self, words: Sequence[str]) -> list[int]:
         ids = set()
         for w in words:
             t = self.tokenizer.encode(w, add_special_tokens=False)
@@ -76,16 +76,14 @@ class LLMScorer:
     @torch.inference_mode()
     def score_batch(
         self,
-        rows: Sequence[Tuple[str, str, Sequence[str], str]],
-    ) -> Tuple[List[float], dict]:
+        rows: Sequence[tuple[str, str, Sequence[str], str]],
+    ) -> tuple[list[float], dict]:
         """rows: list of (profile, title, tags, desc). Returns (scores, timings)."""
         if not rows:
             return [], {"tokenize_ms": 0.0, "gpu_ms": 0.0}
 
         prompts = [
-            PROMPT_TMPL.format(
-                profile=p, title=t, tags=", ".join(tags) or "(none)", desc=d
-            )
+            PROMPT_TMPL.format(profile=p, title=t, tags=", ".join(tags) or "(none)", desc=d)
             for (p, t, tags, d) in rows
         ]
 

@@ -12,6 +12,30 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  lint:
+    name: lint · ruff + black
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          # Include the workflow file and requirements-lint.txt in the cache
+          # key so pin bumps immediately invalidate cached wheels and we never
+          # serve a stale linter version.
+          cache-dependency-path: |
+            requirements-lint.txt
+            .github/workflows/ci.yml
+      - name: Install linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-lint.txt
+      - name: ruff check
+        run: ruff check .
+      - name: black --check
+        run: black --check .
+
   agent_dag_sandbox:
     name: agent_dag_sandbox · tests
     runs-on: ubuntu-latest
@@ -47,7 +71,8 @@ jobs:
           cache: pip
       - name: Install minimal deps (no torch/transformers; tests don't need them)
         run: |
-          python -m pip install --upgrade pip pytest
+          python -m pip install --upgrade pip pytest pytest-asyncio
           pip install numpy
-      - name: pytest unit
-        run: python -m pytest -q tests/test_unit.py
+      - name: pytest unit + batcher
+        # test_smoke.py legitimately needs HF models, so it stays excluded here.
+        run: python -m pytest -q tests/test_unit.py tests/test_batcher.py

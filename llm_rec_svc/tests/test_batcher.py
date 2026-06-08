@@ -3,28 +3,29 @@
 These don't load any HF model -- we stub `score_fn` so the test is
 deterministic and fast.
 """
+
 from __future__ import annotations
 
 import asyncio
 import threading
 import time
-from typing import List, Sequence, Tuple
+from collections.abc import Sequence
 
 import pytest
-
 from app.batcher import BatchingScorer
 
 
 class _FakeScorer:
     """Counts calls and the largest batch ever passed to it."""
+
     def __init__(self, per_row_ms: float = 5.0):
         self.calls = 0
         self.max_batch = 0
-        self.batch_sizes: List[int] = []
+        self.batch_sizes: list[int] = []
         self.per_row_ms = per_row_ms
         self._lock = threading.Lock()
 
-    def __call__(self, rows: Sequence[Tuple[str, str, list, str]]):
+    def __call__(self, rows: Sequence[tuple[str, str, list, str]]):
         with self._lock:
             self.calls += 1
             self.batch_sizes.append(len(rows))
@@ -66,7 +67,7 @@ async def test_concurrent_calls_coalesce_into_one_batch():
         coros = [bs.score([_row(i), _row(i + 100)]) for i in range(8)]
         results = await asyncio.gather(*coros)
         # All callers got their own 2-row slice
-        for scores, t in results:
+        for scores, _t in results:
             assert len(scores) == 2
         # The whole point: dramatically fewer model calls than callers.
         assert fake.calls <= 3
@@ -170,6 +171,30 @@ def test_constructor_validates():
         BatchingScorer(lambda r: ([], {}), max_batch_size=0)
     with pytest.raises(ValueError):
         BatchingScorer(lambda r: ([], {}), max_wait_ms=-1.0)
+
+
+@pytest.mark.asyncio
+async def test_scorer_length_mismatch_propagates_to_callers():
+    """M4 (from step c review): if score_fn returns fewer scores than rows,
+    callers must see a ValueError, not silently mis-ranked results. With
+    `zip(..., strict=True)` in main.py the bug would now surface; here we
+    pin the same expectation at the batcher boundary as well.
+    """
+
+    def bad_score_fn(rows):
+        # Intentionally return one fewer score than rows.
+        scores = [1.0] * (len(rows) - 1)
+        return scores, {"tokenize_ms": 0.0, "gpu_ms": 0.0}
+
+    bs = BatchingScorer(bad_score_fn, max_batch_size=8, max_wait_ms=2.0)
+    await bs.start()
+    try:
+        # 2 rows in, 1 score back -> dispatch slicing must raise rather than
+        # quietly return an empty / short list.
+        with pytest.raises((ValueError, IndexError, AssertionError)):
+            await bs.score([_row(1), _row(2)])
+    finally:
+        await bs.stop()
 
 
 @pytest.mark.asyncio

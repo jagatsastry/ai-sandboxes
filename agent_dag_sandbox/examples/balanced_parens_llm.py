@@ -15,6 +15,7 @@ Run:
     LLM_PROVIDER=openai LLM_MODEL=gpt-4o-mini OPENAI_API_KEY=... python -m examples.balanced_parens_llm
     LLM_PROVIDER=ollama LLM_MODEL=qwen2.5:0.5b python -m examples.balanced_parens_llm
 """
+
 from __future__ import annotations
 
 import json
@@ -41,17 +42,17 @@ def pick_llm():
     provider = os.environ.get("LLM_PROVIDER", "mock").lower()
     model = os.environ.get("LLM_MODEL", "")
     if provider == "openai":
-        return OpenAIChatLLM(model=model or "gpt-4o-mini",
-                             base_url="https://api.openai.com/v1")
+        return OpenAIChatLLM(model=model or "gpt-4o-mini", base_url="https://api.openai.com/v1")
     if provider == "ollama":
-        return OpenAIChatLLM(model=model or "qwen2.5:0.5b",
-                             base_url="http://localhost:11434/v1",
-                             api_key="ollama")
+        return OpenAIChatLLM(
+            model=model or "qwen2.5:0.5b", base_url="http://localhost:11434/v1", api_key="ollama"
+        )
     if provider == "vllm":
-        return OpenAIChatLLM(model=model or "Qwen/Qwen2.5-0.5B-Instruct",
-                             base_url=os.environ.get(
-                                 "LLM_BASE_URL", "http://localhost:8000/v1"),
-                             api_key="not-needed")
+        return OpenAIChatLLM(
+            model=model or "Qwen/Qwen2.5-0.5B-Instruct",
+            base_url=os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1"),
+            api_key="not-needed",
+        )
     return EchoLLM("mock-llm")
 
 
@@ -64,9 +65,11 @@ def build_dag(llm):
     dag.add(
         "test_council",
         Council(
-            members=[CaseWriter(focus="general"),
-                     CaseWriter(focus="edge"),
-                     CaseWriter(focus="mixed")],
+            members=[
+                CaseWriter(focus="general"),
+                CaseWriter(focus="edge"),
+                CaseWriter(focus="mixed"),
+            ],
             aggregator=union_tests,
         ),
         deps=["breakdown"],
@@ -74,20 +77,22 @@ def build_dag(llm):
     )
 
     # Real (or mock) LLM coder, with deterministic fallback for resilience.
-    dag.add("coder",
-            LLMCoder(llm, entrypoint="solve",
-                     fallback=Coder(buggy=True)),
-            deps=["breakdown"],
-            retry=RetryPolicy(max_attempts=2, backoff_ms=100))
+    dag.add(
+        "coder",
+        LLMCoder(llm, entrypoint="solve", fallback=Coder(buggy=True)),
+        deps=["breakdown"],
+        retry=RetryPolicy(max_attempts=2, backoff_ms=100),
+    )
 
     dag.add("adversary", Adversary(), deps=["coder"])
 
     # Patching coder: same LLM, sees adversary_failures on the blackboard.
-    dag.add("patched_coder",
-            LLMCoder(llm, entrypoint="solve",
-                     fallback=Coder(buggy=False)),
-            deps=["adversary"],
-            retry=RetryPolicy(max_attempts=2, backoff_ms=100))
+    dag.add(
+        "patched_coder",
+        LLMCoder(llm, entrypoint="solve", fallback=Coder(buggy=False)),
+        deps=["adversary"],
+        retry=RetryPolicy(max_attempts=2, backoff_ms=100),
+    )
 
     dag.add("verifier", Verifier(), deps=["patched_coder", "test_council"])
     return dag
@@ -98,14 +103,16 @@ def main() -> None:
     print(f"[setup] using LLM: {llm.name}")
 
     bb = Blackboard()
-    bb.put("task_spec", {
-        "goal": "Implement is_balanced_parens(s: str) -> bool",
-        "signature": "solve(s: str) -> bool",
-        "notes": "Return True iff every '(' has a matching ')' in correct order.",
-    })
+    bb.put(
+        "task_spec",
+        {
+            "goal": "Implement is_balanced_parens(s: str) -> bool",
+            "signature": "solve(s: str) -> bool",
+            "notes": "Return True iff every '(' has a matching ')' in correct order.",
+        },
+    )
 
-    trace_path = (Path(__file__).resolve().parent.parent
-                  / "traces" / "balanced_parens_llm.jsonl")
+    trace_path = Path(__file__).resolve().parent.parent / "traces" / "balanced_parens_llm.jsonl"
     tracer = Tracer(trace_path)
 
     dag = build_dag(llm)

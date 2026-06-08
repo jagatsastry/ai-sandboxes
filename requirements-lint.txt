@@ -1,0 +1,8 @@
+# Linter pins for CI + local dev. Keep in lockstep with the `lint`
+# job in .github/workflows/ci.yml.
+ruff==0.15.16
+black==26.5.1
+# pytokens is a hard transitive of black 26.x (replaced its internal
+# tokenizer). Pin it explicitly so a `pytokens 0.5.x` release inside the
+# `~=0.4.0` window can't silently change CI behavior.
+pytokens==0.4.1

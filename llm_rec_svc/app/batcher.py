@@ -51,18 +51,18 @@ CANCELLATION:
   committed to running them in this batch -- changing that would
   require splitting the batch mid-flight.
 """
+
 from __future__ import annotations
 
 import asyncio
 import threading
 import time
 from collections import deque
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Callable, Deque, List, Sequence, Tuple
-
 
 # Row shape: (profile, title, tags, desc) -- same as scorer.score_batch.
-Row = Tuple[str, str, Sequence[str], str]
+Row = tuple[str, str, Sequence[str], str]
 
 
 # Typed sentinel so we never confuse a real (empty-rows) caller with the
@@ -77,8 +77,8 @@ _SENTINEL = _StopSentinel()
 
 @dataclass
 class _Pending:
-    rows: List[Row]
-    future: "asyncio.Future[Tuple[List[float], dict]]"
+    rows: list[Row]
+    future: asyncio.Future[tuple[list[float], dict]]
     enqueued_at: float
 
 
@@ -89,12 +89,13 @@ class BatchStats:
     All mutating methods take `_lock`; `snapshot()` also takes it so
     readers never see a torn list during append/evict.
     """
-    requests: int = 0           # incoming caller-level requests
-    batches: int = 0            # forward passes actually executed
-    rows_total: int = 0         # total scored rows (incl. cancelled callers)
-    rows_max_batch: int = 0     # largest single batch we ran
-    last_batch_sizes: Deque[int] = field(default_factory=lambda: deque(maxlen=64))
-    last_callers_per_batch: Deque[int] = field(default_factory=lambda: deque(maxlen=64))
+
+    requests: int = 0  # incoming caller-level requests
+    batches: int = 0  # forward passes actually executed
+    rows_total: int = 0  # total scored rows (incl. cancelled callers)
+    rows_max_batch: int = 0  # largest single batch we ran
+    last_batch_sizes: deque[int] = field(default_factory=lambda: deque(maxlen=64))
+    last_callers_per_batch: deque[int] = field(default_factory=lambda: deque(maxlen=64))
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def record(self, batch_rows: int, n_callers: int) -> None:
@@ -126,13 +127,11 @@ class BatchStats:
             "batches": cum_batches,
             "rows_total": cum_rows,
             "rows_per_batch_max": cum_max,
-            "rows_per_batch_avg": (sum(recent_rows) / len(recent_rows))
-                                   if recent_rows else 0.0,
+            "rows_per_batch_avg": (sum(recent_rows) / len(recent_rows)) if recent_rows else 0.0,
             # kept for backward compat with existing tests + /metrics consumers
             "avg_callers_per_batch": avg_callers_recent,
             "callers_per_batch_avg_recent": avg_callers_recent,
-            "callers_per_batch_avg_cum": (cum_requests / cum_batches)
-                                           if cum_batches else 0.0,
+            "callers_per_batch_avg_cum": (cum_requests / cum_batches) if cum_batches else 0.0,
         }
 
 
@@ -141,7 +140,7 @@ class BatchingScorer:
 
     def __init__(
         self,
-        score_fn: Callable[[Sequence[Row]], Tuple[List[float], dict]],
+        score_fn: Callable[[Sequence[Row]], tuple[list[float], dict]],
         max_batch_size: int = 64,
         max_wait_ms: float = 5.0,
     ):
@@ -155,9 +154,9 @@ class BatchingScorer:
 
         # asyncio primitives are loop-bound; create them in start() so we
         # don't bind to whatever loop happens to be current at construction.
-        self._queue: "asyncio.Queue | None" = None
-        self._task: "asyncio.Task | None" = None
-        self._loop: "asyncio.AbstractEventLoop | None" = None
+        self._queue: asyncio.Queue | None = None
+        self._task: asyncio.Task | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._stopped = False
         self.stats = BatchStats()
 
@@ -192,30 +191,30 @@ class BatchingScorer:
         try:
             try:
                 await asyncio.wait_for(self._task, timeout=drain_timeout_s)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._task.cancel()
         finally:
             self._task = None
             self._queue = None
             self._loop = None
 
-    async def score(self, rows: Sequence[Row]) -> Tuple[List[float], dict]:
+    async def score(self, rows: Sequence[Row]) -> tuple[list[float], dict]:
         """Submit a list of rows; await the (scores, timings) for THIS caller."""
         if not rows:
             self.stats.note_request(1)
-            return [], {"tokenize_ms": 0.0, "gpu_ms": 0.0,
-                        "batch_size": 0, "queue_ms": 0.0}
+            return [], {"tokenize_ms": 0.0, "gpu_ms": 0.0, "batch_size": 0, "queue_ms": 0.0}
         if self._queue is None or self._loop is None:
             raise RuntimeError("BatchingScorer not started")
         loop = asyncio.get_running_loop()
         if loop is not self._loop:
             raise RuntimeError(
-                "BatchingScorer.score() called from a different event loop "
-                "than start() ran on"
+                "BatchingScorer.score() called from a different event loop " "than start() ran on"
             )
         fut: asyncio.Future = loop.create_future()
         pending = _Pending(
-            rows=list(rows), future=fut, enqueued_at=time.monotonic(),
+            rows=list(rows),
+            future=fut,
+            enqueued_at=time.monotonic(),
         )
         await self._queue.put(pending)
         return await fut
@@ -232,8 +231,8 @@ class BatchingScorer:
                 return
 
             head: _Pending = first  # type: ignore[assignment]
-            batch_pending: List[_Pending] = [head]
-            batch_rows: List[Row] = list(head.rows)
+            batch_pending: list[_Pending] = [head]
+            batch_rows: list[Row] = list(head.rows)
 
             # Phase 1: immediately drain anything already sitting in the
             # queue without sleeping. This is what makes max_wait_ms=0
@@ -242,8 +241,7 @@ class BatchingScorer:
 
             # Phase 2: wait up to max_wait_ms for late arrivals, but only
             # if we still have room.
-            if (len(batch_rows) < self.max_batch_size
-                    and self.max_wait_ms > 0):
+            if len(batch_rows) < self.max_batch_size and self.max_wait_ms > 0:
                 deadline = head.enqueued_at + (self.max_wait_ms / 1000.0)
                 while len(batch_rows) < self.max_batch_size:
                     timeout = deadline - time.monotonic()
@@ -251,15 +249,15 @@ class BatchingScorer:
                         break
                     try:
                         nxt = await asyncio.wait_for(
-                            self._queue.get(), timeout=timeout,
+                            self._queue.get(),
+                            timeout=timeout,
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         break
                     if nxt is _SENTINEL:
                         await self._dispatch(batch_pending, batch_rows)
                         return
                     remaining = self.max_batch_size - len(batch_rows)
-                    np = nxt  # type: _Pending  # noqa: F841 - clarity
                     if len(nxt.rows) <= remaining:
                         batch_pending.append(nxt)
                         batch_rows.extend(nxt.rows)
@@ -275,8 +273,8 @@ class BatchingScorer:
 
     def _drain_ready(
         self,
-        batch_pending: List[_Pending],
-        batch_rows: List[Row],
+        batch_pending: list[_Pending],
+        batch_rows: list[Row],
     ) -> None:
         """Pull anything that's already enqueued, no waiting.
 
@@ -306,14 +304,20 @@ class BatchingScorer:
 
     async def _dispatch(
         self,
-        pendings: List[_Pending],
-        rows: List[Row],
+        pendings: list[_Pending],
+        rows: list[Row],
     ) -> None:
         """Run the model on `rows` and resolve each pending future."""
         if not rows:
             return
         try:
             scores, timings = await asyncio.to_thread(self.score_fn, rows)
+            # Defensive: a misbehaving score_fn that returns the wrong number
+            # of scores would otherwise silently mis-rank — every caller after
+            # the truncation point would get a too-short slice. Raise loud and
+            # propagate to every caller in the batch.
+            if len(scores) != len(rows):
+                raise ValueError(f"score_fn returned {len(scores)} scores for {len(rows)} rows")
         except BaseException as exc:  # noqa: BLE001 - propagate to every caller
             for p in pendings:
                 # Swallow InvalidStateError if a caller cancelled between
@@ -331,7 +335,7 @@ class BatchingScorer:
         delivered_callers = 0
         for p in pendings:
             n = len(p.rows)
-            sl = scores[cursor:cursor + n]
+            sl = scores[cursor : cursor + n]
             cursor += n
             caller_timings = {
                 **timings,

@@ -1,0 +1,45 @@
+[tool.ruff]
+# Common ruff config for both sub-projects.
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/traces",
+    "**/build",
+    "**/dist",
+]
+
+[tool.ruff.lint]
+# Conservative starter set: pyflakes (F), a curated slice of pycodestyle
+# (E) errors, isort (I), and a few targeted bug-catchers. We intentionally
+# do NOT enable the full pycodestyle warning set (W) or the noisy comment-
+# style rules — this CI is meant to catch real bugs, not bikeshed.
+# Note: BLE is enabled so the existing `# noqa: BLE001` comments at the
+# few intentional catch-all sites are actually meaningful (not dead).
+select = ["F", "E4", "E7", "E9", "I", "B", "BLE", "UP"]
+# Allow long strings/comments — black handles real wrapping; otherwise
+# we'd just be shouting at hand-formatted docstrings.
+ignore = [
+    "E501",  # line-too-long (let black/our judgment decide)
+    "B008",  # function-call-in-default-arg (FastAPI Depends pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests routinely import-then-not-use to exercise side-effects, and use
+# `assert` everywhere. Allow it.
+"**/tests/**" = ["F401", "F811"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+extend-exclude = '''
+/(
+    \.git
+  | \.pytest_cache
+  | __pycache__
+  | traces
+  | build
+  | dist
+)/
+'''

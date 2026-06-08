@@ -1,5 +1,5 @@
 from agentdag import DAG, Blackboard, Scheduler, Tracer
-from agentdag.agents import Council, CaseWriter
+from agentdag.agents import CaseWriter, Council
 from agentdag.agents.roles import union_tests
 
 
@@ -10,9 +10,11 @@ def test_test_council_union_dedups():
     dag.add(
         "test_council",
         Council(
-            members=[CaseWriter(focus="general"),
-                     CaseWriter(focus="edge"),
-                     CaseWriter(focus="mixed")],
+            members=[
+                CaseWriter(focus="general"),
+                CaseWriter(focus="edge"),
+                CaseWriter(focus="mixed"),
+            ],
             aggregator=union_tests,
         ),
     )
@@ -30,9 +32,7 @@ def test_majority_council():
     dag.add(
         "vote",
         Council(
-            members=[lambda ctx: "A",
-                     lambda ctx: "A",
-                     lambda ctx: "B"],
+            members=[lambda ctx: "A", lambda ctx: "A", lambda ctx: "B"],
         ),
     )
     out = Scheduler(dag, blackboard=bb).run()
@@ -53,5 +53,12 @@ def test_end_to_end_balanced_parens():
     assert len(out["adversary"]["failures"]) > 0
     # tracer must contain a finished event for every node
     finished = {e.node for e in tracer.events if e.kind == "finished"}
-    assert {"planner", "breakdown", "test_council", "coder",
-            "adversary", "patched_coder", "verifier"}.issubset(finished)
+    assert {
+        "planner",
+        "breakdown",
+        "test_council",
+        "coder",
+        "adversary",
+        "patched_coder",
+        "verifier",
+    }.issubset(finished)

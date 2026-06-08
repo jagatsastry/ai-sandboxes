@@ -4,13 +4,14 @@ Usage:
     python -m agentdag.analyze traces/balanced_parens.jsonl
     python -m agentdag.analyze traces/run.jsonl --json
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from .tracer import Tracer, TraceEvent
+from .tracer import TraceEvent, Tracer
 
 
 def load_trace(path: Path) -> Tracer:
@@ -18,6 +19,7 @@ def load_trace(path: Path) -> Tracer:
     by constructing manually."""
     t = Tracer.__new__(Tracer)
     import threading
+
     t._events = []
     t._lock = threading.Lock()
     t._path = None

@@ -1,4 +1,5 @@
 """Tiny benchmark: hit /recommend N times, print latency percentiles."""
+
 from __future__ import annotations
 
 import argparse
@@ -6,7 +7,6 @@ import statistics
 import time
 
 import httpx
-
 
 PROFILES = [
     "Senior backend engineer prepping for AI infra system design interviews; cares about ranking, search, distributed systems.",
@@ -28,14 +28,19 @@ def main():
     lats, gpu, emb, cand = [], [], [], []
     with httpx.Client(timeout=60.0) as c:
         # warm
-        c.post(args.url, json={"profile": PROFILES[0], "top_k": args.topk,
-                               "n_candidates": args.cands})
+        c.post(
+            args.url, json={"profile": PROFILES[0], "top_k": args.topk, "n_candidates": args.cands}
+        )
         t0 = time.perf_counter()
         for i in range(args.n):
-            r = c.post(args.url, json={
-                "profile": PROFILES[i % len(PROFILES)],
-                "top_k": args.topk, "n_candidates": args.cands,
-            })
+            r = c.post(
+                args.url,
+                json={
+                    "profile": PROFILES[i % len(PROFILES)],
+                    "top_k": args.topk,
+                    "n_candidates": args.cands,
+                },
+            )
             r.raise_for_status()
             j = r.json()
             lats.append(j["timings"]["total_ms"])
@@ -51,9 +56,11 @@ def main():
     print(f"n={args.n}  topk={args.topk}  cands={args.cands}")
     print(f"throughput: {args.n / elapsed:.1f} req/s")
     for name, xs in [("total", lats), ("gpu", gpu), ("embed", emb), ("cand", cand)]:
-        print(f"  {name:5s}  p50={pct(xs,50):6.1f}ms  "
-              f"p95={pct(xs,95):6.1f}ms  "
-              f"avg={statistics.mean(xs):6.1f}ms")
+        print(
+            f"  {name:5s}  p50={pct(xs,50):6.1f}ms  "
+            f"p95={pct(xs,95):6.1f}ms  "
+            f"avg={statistics.mean(xs):6.1f}ms"
+        )
 
 
 if __name__ == "__main__":

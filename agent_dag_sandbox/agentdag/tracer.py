@@ -15,6 +15,7 @@ Event kinds:
 Every event carries: ts (monotonic seconds), wall (wall-clock epoch),
 node, attempt, kind, and an optional payload dict.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,25 +23,25 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
 class TraceEvent:
-    ts: float                    # monotonic; for durations
-    wall: float                  # epoch seconds; for humans
-    kind: str                    # enqueued|started|finished|retry|failed|log
+    ts: float  # monotonic; for durations
+    wall: float  # epoch seconds; for humans
+    kind: str  # enqueued|started|finished|retry|failed|log
     node: str
     attempt: int = 0
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 class Tracer:
-    def __init__(self, path: Optional[str | Path] = None) -> None:
-        self._events: List[TraceEvent] = []
+    def __init__(self, path: str | Path | None = None) -> None:
+        self._events: list[TraceEvent] = []
         self._lock = threading.Lock()
         self._path = Path(path) if path else None
         if self._path:
@@ -64,12 +65,12 @@ class Tracer:
                     f.write(json.dumps(ev.to_dict()) + "\n")
 
     @property
-    def events(self) -> List[TraceEvent]:
+    def events(self) -> list[TraceEvent]:
         with self._lock:
             return list(self._events)
 
     # ---- analysis ---------------------------------------------------------
-    def summarize(self) -> Dict[str, Any]:
+    def summarize(self) -> dict[str, Any]:
         """Per-node timings + a rollup.
 
         Returns dict like:
@@ -89,7 +90,7 @@ class Tracer:
             return {"nodes": {}, "total_ms": 0.0}
 
         # Per-node, per-attempt bookkeeping
-        node_state: Dict[str, Dict[str, Any]] = {}
+        node_state: dict[str, dict[str, Any]] = {}
         for ev in evs:
             st = node_state.setdefault(
                 ev.node,

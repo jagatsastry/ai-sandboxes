@@ -3,9 +3,9 @@
 Prints a table of p50/p95/avg per stage for each config so you can see how
 each stage scales.
 """
+
 from __future__ import annotations
 
-import statistics
 import time
 
 import httpx
@@ -30,13 +30,16 @@ def bench(n_calls: int, n_candidates: int, top_k: int) -> dict:
     lats = {"total": [], "embed": [], "candidate": [], "tokenize": [], "gpu": []}
     with httpx.Client(timeout=60.0) as c:
         # warm
-        c.post(URL, json={"profile": PROFILES[0], "top_k": top_k,
-                          "n_candidates": n_candidates})
+        c.post(URL, json={"profile": PROFILES[0], "top_k": top_k, "n_candidates": n_candidates})
         for i in range(n_calls):
-            r = c.post(URL, json={
-                "profile": PROFILES[i % len(PROFILES)],
-                "top_k": top_k, "n_candidates": n_candidates,
-            })
+            r = c.post(
+                URL,
+                json={
+                    "profile": PROFILES[i % len(PROFILES)],
+                    "top_k": top_k,
+                    "n_candidates": n_candidates,
+                },
+            )
             r.raise_for_status()
             t = r.json()["timings"]
             lats["total"].append(t["total_ms"])
@@ -50,29 +53,33 @@ def bench(n_calls: int, n_candidates: int, top_k: int) -> dict:
 def main():
     configs = [
         # (n_candidates, top_k)
-        (5,  5),
+        (5, 5),
         (10, 5),
         (20, 5),
-        (25, 5),   # full catalog
+        (25, 5),  # full catalog
         (25, 10),
     ]
     n_calls = 30
 
-    print(f"{'cands':>5} {'topk':>4}  ||"
-          f"  {'total p50':>9} {'p95':>6} ||"
-          f"  {'gpu p50':>7} {'p95':>6} ||"
-          f"  {'embed p50':>9} ||"
-          f"  {'tok p50':>7} ||"
-          f"  {'cand p50':>8}")
+    print(
+        f"{'cands':>5} {'topk':>4}  ||"
+        f"  {'total p50':>9} {'p95':>6} ||"
+        f"  {'gpu p50':>7} {'p95':>6} ||"
+        f"  {'embed p50':>9} ||"
+        f"  {'tok p50':>7} ||"
+        f"  {'cand p50':>8}"
+    )
     print("-" * 100)
     for n_c, k in configs:
         L = bench(n_calls, n_c, k)
-        print(f"{n_c:>5} {k:>4}  ||"
-              f"  {pct(L['total'],50):>9.1f} {pct(L['total'],95):>6.1f} ||"
-              f"  {pct(L['gpu'],50):>7.1f} {pct(L['gpu'],95):>6.1f} ||"
-              f"  {pct(L['embed'],50):>9.1f} ||"
-              f"  {pct(L['tokenize'],50):>7.1f} ||"
-              f"  {pct(L['candidate'],50):>8.2f}")
+        print(
+            f"{n_c:>5} {k:>4}  ||"
+            f"  {pct(L['total'],50):>9.1f} {pct(L['total'],95):>6.1f} ||"
+            f"  {pct(L['gpu'],50):>7.1f} {pct(L['gpu'],95):>6.1f} ||"
+            f"  {pct(L['embed'],50):>9.1f} ||"
+            f"  {pct(L['tokenize'],50):>7.1f} ||"
+            f"  {pct(L['candidate'],50):>8.2f}"
+        )
 
     # throughput at the default config
     print()
@@ -80,8 +87,10 @@ def main():
     t0 = time.perf_counter()
     bench(n_thru, 20, 5)
     elapsed = time.perf_counter() - t0
-    print(f"throughput @ cands=20 topk=5, sequential: "
-          f"{n_thru/elapsed:.1f} req/s ({n_thru} calls in {elapsed:.2f}s)")
+    print(
+        f"throughput @ cands=20 topk=5, sequential: "
+        f"{n_thru/elapsed:.1f} req/s ({n_thru} calls in {elapsed:.2f}s)"
+    )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ method, `.complete(prompt, system, temperature) -> str`. Want a real model?
 Use `OpenAIChatLLM` (works with any OpenAI-Chat-compatible endpoint:
 OpenAI, vLLM, Ollama, LM Studio, ...).
 """
+
 from __future__ import annotations
 
 import json
@@ -17,8 +18,8 @@ from typing import Protocol
 
 class LLMClient(Protocol):
     name: str
-    def complete(self, prompt: str, *, system: str = "",
-                 temperature: float = 0.0) -> str: ...
+
+    def complete(self, prompt: str, *, system: str = "", temperature: float = 0.0) -> str: ...
 
 
 class EchoLLM:
@@ -28,14 +29,13 @@ class EchoLLM:
     instance carries a 'persona' so council members produce predictable
     disagreement.
     """
-    def __init__(self, name: str = "echo", persona: str = "default",
-                 latency_ms: int = 5):
+
+    def __init__(self, name: str = "echo", persona: str = "default", latency_ms: int = 5):
         self.name = name
         self.persona = persona
         self.latency_ms = latency_ms
 
-    def complete(self, prompt: str, *, system: str = "",
-                 temperature: float = 0.0) -> str:
+    def complete(self, prompt: str, *, system: str = "", temperature: float = 0.0) -> str:
         time.sleep(self.latency_ms / 1000.0)
         return f"[{self.name}:{self.persona}] ok"
 
@@ -88,18 +88,19 @@ class OpenAIChatLLM:
         self.max_retries = max_retries
         self.name = name or f"openai:{model}"
 
-    def complete(self, prompt: str, *, system: str = "",
-                 temperature: float = 0.0) -> str:
+    def complete(self, prompt: str, *, system: str = "", temperature: float = 0.0) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = json.dumps({
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature,
-        }).encode("utf-8")
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+            }
+        ).encode("utf-8")
 
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -119,17 +120,13 @@ class OpenAIChatLLM:
                     delay = self._retry_delay(attempt, e)
                     time.sleep(delay)
                     continue
-                raise RuntimeError(
-                    f"OpenAIChatLLM HTTP {e.code} from {url}: {e.reason}"
-                ) from e
+                raise RuntimeError(f"OpenAIChatLLM HTTP {e.code} from {url}: {e.reason}") from e
             except (urllib.error.URLError, TimeoutError, OSError) as e:
                 last_err = e
                 if attempt < self.max_retries:
                     time.sleep(self._retry_delay(attempt))
                     continue
-                raise RuntimeError(
-                    f"OpenAIChatLLM network failure to {url}: {e!r}"
-                ) from e
+                raise RuntimeError(f"OpenAIChatLLM network failure to {url}: {e!r}") from e
 
             # Parse outside the urlopen context so we don't hold the conn.
             try:
@@ -142,19 +139,15 @@ class OpenAIChatLLM:
                 if content is None:
                     raise ValueError("response content was null")
                 return content
-            except (ValueError, KeyError, IndexError,
-                    UnicodeDecodeError) as e:
+            except (ValueError, KeyError, IndexError, UnicodeDecodeError) as e:
                 # Bad payloads are not transient; do not retry.
-                raise RuntimeError(
-                    f"OpenAIChatLLM bad response from {url}: {e!r}"
-                ) from e
+                raise RuntimeError(f"OpenAIChatLLM bad response from {url}: {e!r}") from e
 
         # unreachable in practice
         raise RuntimeError(f"OpenAIChatLLM unknown failure: {last_err!r}")
 
     @staticmethod
-    def _retry_delay(attempt: int,
-                     http_err: urllib.error.HTTPError | None = None) -> float:
+    def _retry_delay(attempt: int, http_err: urllib.error.HTTPError | None = None) -> float:
         # Respect Retry-After on 429 if present.
         if http_err is not None:
             ra = http_err.headers.get("Retry-After") if http_err.headers else None
@@ -163,4 +156,4 @@ class OpenAIChatLLM:
                     return float(ra)
                 except (TypeError, ValueError):
                     pass
-        return 0.5 * (2 ** attempt)
+        return 0.5 * (2**attempt)

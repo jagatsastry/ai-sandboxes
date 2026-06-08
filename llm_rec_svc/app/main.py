@@ -15,6 +15,7 @@ regimes).
 
 All stages timed; timings returned in the response and rolled up in /metrics.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,9 +24,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Lock
-from typing import List, Optional
 
-import numpy as np
 import torch
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -34,7 +33,6 @@ from sentence_transformers import SentenceTransformer
 from .batcher import BatchingScorer
 from .catalog import Catalog
 from .scorer import LLMScorer
-
 
 # ---------------- config ----------------
 DATA_PATH = Path(os.getenv("ITEMS_PATH", "data/items.json"))
@@ -60,7 +58,7 @@ class RecRequest(BaseModel):
 class RecItem(BaseModel):
     id: str
     title: str
-    tags: List[str]
+    tags: list[str]
     final_score: float
     llm_score: float
     retrieval_score: float
@@ -77,7 +75,7 @@ class Timings(BaseModel):
 
 
 class RecResponse(BaseModel):
-    items: List[RecItem]
+    items: list[RecItem]
     timings: Timings
     device: str
     n_candidates: int
@@ -85,10 +83,10 @@ class RecResponse(BaseModel):
 
 # ---------------- global state ----------------
 class State:
-    embedder: Optional[SentenceTransformer] = None
-    catalog: Optional[Catalog] = None
-    scorer: Optional[LLMScorer] = None
-    batcher: Optional[BatchingScorer] = None
+    embedder: SentenceTransformer | None = None
+    catalog: Catalog | None = None
+    scorer: LLMScorer | None = None
+    batcher: BatchingScorer | None = None
     metrics_lock = Lock()
     metrics = {
         "requests": 0,
@@ -112,8 +110,10 @@ async def lifespan(app: FastAPI):
     print("[boot] warmup...")
     State.scorer.warmup()
     if BATCH_ENABLE:
-        print(f"[boot] starting batcher: max_size={BATCH_MAX_SIZE} "
-              f"max_wait_ms={BATCH_MAX_WAIT_MS}")
+        print(
+            f"[boot] starting batcher: max_size={BATCH_MAX_SIZE} "
+            f"max_wait_ms={BATCH_MAX_WAIT_MS}"
+        )
         State.batcher = BatchingScorer(
             score_fn=State.scorer.score_batch,
             max_batch_size=BATCH_MAX_SIZE,
@@ -171,8 +171,11 @@ async def recommend(req: RecRequest):
     # loop and prevent other coroutines from reaching the batcher).
     def _embed():
         return State.embedder.encode(
-            [req.profile], convert_to_numpy=True, show_progress_bar=False,
+            [req.profile],
+            convert_to_numpy=True,
+            show_progress_bar=False,
         )[0]
+
     q = await asyncio.to_thread(_embed)
     t1 = time.perf_counter()
 
@@ -191,9 +194,7 @@ async def recommend(req: RecRequest):
     if State.batcher is not None:
         llm_scores, ttimes = await State.batcher.score(rows)
     else:
-        llm_scores, ttimes = await asyncio.to_thread(
-            State.scorer.score_batch, rows
-        )
+        llm_scores, ttimes = await asyncio.to_thread(State.scorer.score_batch, rows)
         ttimes = {**ttimes, "batch_size": len(rows), "queue_ms": 0.0}
 
     # 4) blend & sort
@@ -206,7 +207,7 @@ async def recommend(req: RecRequest):
         llm_norm = []
 
     scored = []
-    for (it, ret), raw_llm, n_llm in zip(cands, llm_scores, llm_norm):
+    for (it, ret), raw_llm, n_llm in zip(cands, llm_scores, llm_norm, strict=True):
         # retrieval score is cosine in [-1,1]; map to [0,1]
         ret_n = (ret + 1.0) / 2.0
         final = LLM_WEIGHT * n_llm + (1.0 - LLM_WEIGHT) * ret_n
@@ -237,8 +238,12 @@ async def recommend(req: RecRequest):
     return RecResponse(
         items=[
             RecItem(
-                id=it.id, title=it.title, tags=it.tags,
-                final_score=final, llm_score=llm, retrieval_score=ret,
+                id=it.id,
+                title=it.title,
+                tags=it.tags,
+                final_score=final,
+                llm_score=llm,
+                retrieval_score=ret,
             )
             for (it, llm, ret, final) in top
         ],

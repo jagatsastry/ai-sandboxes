@@ -8,17 +8,19 @@ Design notes:
     - Namespaced keys are just dotted strings ("plan.steps", "code.v1"); we
       don't enforce schema -- agents agree on conventions.
 """
+
 from __future__ import annotations
 
 import copy
 import threading
-from typing import Any, Dict, Iterator, Optional, Tuple
+from collections.abc import Iterator
+from typing import Any
 
 
 class Blackboard:
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self._data: Dict[str, Any] = {}
+        self._data: dict[str, Any] = {}
         self._version: int = 0
 
     # ---- basic kv ---------------------------------------------------------
@@ -52,7 +54,7 @@ class Blackboard:
             return self._version
 
     # ---- snapshot ---------------------------------------------------------
-    def snapshot(self, deep: bool = True) -> Tuple[int, Dict[str, Any]]:
+    def snapshot(self, deep: bool = True) -> tuple[int, dict[str, Any]]:
         """Return (version, copy). Mutating the copy never affects the board.
 
         deep=True (default) deep-copies the values so nested lists/dicts are
@@ -69,7 +71,7 @@ class Blackboard:
         with self._lock:
             return self._version
 
-    def items(self) -> Iterator[Tuple[str, Any]]:
+    def items(self) -> Iterator[tuple[str, Any]]:
         with self._lock:
             return iter(list(self._data.items()))
 

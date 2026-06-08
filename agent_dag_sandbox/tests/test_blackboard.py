@@ -15,7 +15,7 @@ def test_snapshot_is_isolated():
     bb = Blackboard()
     bb.put("xs", [1, 2])
     v, snap = bb.snapshot()
-    snap["xs"].append(999)         # mutating snapshot must not affect bb
+    snap["xs"].append(999)  # mutating snapshot must not affect bb
     assert bb.get("xs") == [1, 2]
 
 

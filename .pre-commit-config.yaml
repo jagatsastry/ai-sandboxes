@@ -1,0 +1,23 @@
+# Optional dev convenience. CI is the source of truth, but this hook
+# gives you the same lint feedback before you push.
+#
+# Setup:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Keep these rev pins in lockstep with requirements-lint.txt.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.16
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+        # We use black, not ruff-format, as the canonical formatter; this
+        # entry is intentionally commented out. Leaving the ruff hook above
+        # is sufficient for lint-style fixes.
+        stages: [manual]
+  - repo: https://github.com/psf/black
+    rev: 26.5.1
+    hooks:
+      - id: black
